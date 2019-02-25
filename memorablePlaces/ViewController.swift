@@ -10,9 +10,10 @@
 import UIKit
 import CoreLocation
 import MapKit
+import CoreData
 
-class ViewController: UIViewController, CLLocationManagerDelegate, MKMapViewDelegate {
-
+class ViewController: UIViewController, CLLocationManagerDelegate, MKMapViewDelegate, NSFetchedResultsControllerDelegate {
+    
     @IBOutlet weak var mapView: MKMapView!
     
     
@@ -55,16 +56,37 @@ class ViewController: UIViewController, CLLocationManagerDelegate, MKMapViewDele
     
     override func viewDidLoad() {
         super.viewDidLoad()
-
+        
         
         startingScreen()
-        //reloadData()
-        // Do any additional setup after loading the view, typically from a nib.
+        guard let appDelegate =
+            UIApplication.shared.delegate as? AppDelegate else {
+                return
+        }
+        
+        let managedContext =
+            appDelegate.persistentContainer.viewContext
+        
+        //2
+        let fetchRequest =
+            NSFetchRequest<NSManagedObject>(entityName: "Places")
+        
+        //3
+        do {
+            let placeContext = try managedContext.fetch(fetchRequest)
+            for place in placeContext{
+               // print(place.value(forKey: "longitude"))
+                addAnnotation(place.value(forKey: "latitude") as! Double, place.value(forKey: "longitude") as! Double, title: place.value(forKey: "title")! as! String, subTitle: place.value(forKey: "subTitle")! as! String)
+            }
+            
+            
+        } catch let error as NSError {
+            print("Could not fetch. \(error), \(error.userInfo)")
+        }
+        
         let uiLongPress = UILongPressGestureRecognizer(target: self, action: #selector(self.longPressAction(gestureRecognizer: )))
         uiLongPress.minimumPressDuration = 2.0
         mapView.addGestureRecognizer(uiLongPress)
-        
-        
     }
     
     
@@ -80,8 +102,8 @@ class ViewController: UIViewController, CLLocationManagerDelegate, MKMapViewDele
     
     func getTitleAlert(latitude:Double,longitude: Double)
     {
-        var title = ""
-        var subTitle = ""
+        var title: String = ""
+        var subTitle: String = ""
         let alert = UIAlertController(title: "Memorable Place?", message: "Please enter title and subtitle below", preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: nil))
     
@@ -95,10 +117,32 @@ class ViewController: UIViewController, CLLocationManagerDelegate, MKMapViewDele
         alert.addAction(UIAlertAction(title: "Add", style: .default, handler: { action in
             title = (alert.textFields?.first?.text)!
             subTitle = (alert.textFields?.last?.text)!
+            
+            if !((title.isEmpty) && (subTitle.isEmpty)) {
             self.addAnnotation(latitude, longitude, title: title, subTitle: subTitle)
             self.arrayMemoPlaces.append(memoPlaces(title: title, subTitle: subTitle, latitude: latitude, longitude: longitude))
             
-           // UserDefaults.standard.set(self.arrayMemoPlaces, forKey: "arrayMemoPlaces")
+            let appDelegate = UIApplication.shared.delegate as! AppDelegate
+            let context = appDelegate.persistentContainer.viewContext
+            
+            let entity = NSEntityDescription.entity(forEntityName: "Places", in: context)
+            let newPlace = NSManagedObject(entity: entity!, insertInto: context)
+            newPlace.setValue(title, forKey: "title")
+            newPlace.setValue(subTitle, forKey: "subTitle")
+            newPlace.setValue(longitude, forKey: "longitude")
+            newPlace.setValue(latitude, forKey: "latitude")
+            do {
+                try context.save()
+                print("Data Saved")
+            } catch let error as NSError {
+                print("Could not save. \(error), \(error.userInfo)")
+            }
+            
+
+            } else {
+                print("Please enter valid input")
+            }
+
         }))
         
         self.present(alert, animated: true)
@@ -113,6 +157,9 @@ class ViewController: UIViewController, CLLocationManagerDelegate, MKMapViewDele
         }
     
     }
+    
+   
+
 
 }
 
