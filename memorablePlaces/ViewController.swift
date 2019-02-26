@@ -59,19 +59,13 @@ class ViewController: UIViewController, CLLocationManagerDelegate, MKMapViewDele
         
         
         startingScreen()
-        guard let appDelegate =
-            UIApplication.shared.delegate as? AppDelegate else {
+        guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else {
                 return
         }
         
-        let managedContext =
-            appDelegate.persistentContainer.viewContext
+        let managedContext = appDelegate.persistentContainer.viewContext
+        let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Places")
         
-        //2
-        let fetchRequest =
-            NSFetchRequest<NSManagedObject>(entityName: "Places")
-        
-        //3
         do {
             let placeContext = try managedContext.fetch(fetchRequest)
             for place in placeContext{
@@ -147,17 +141,6 @@ class ViewController: UIViewController, CLLocationManagerDelegate, MKMapViewDele
         
         self.present(alert, animated: true)
     }
-    
-    func reloadData(){
-        if UserDefaults.standard.value(forKey: "arrayMemoPlaces") != nil {
-            arrayMemoPlaces = ((UserDefaults.standard.value(forKey: "arrayMemoPlaces") as! NSArray) as! [ViewController.memoPlaces])
-            for index in 0..<arrayMemoPlaces.count {
-                addAnnotation(arrayMemoPlaces[index].latitude, arrayMemoPlaces[index].longitude, title: arrayMemoPlaces[index].title, subTitle: arrayMemoPlaces[index].subTitle)
-            }
-        }
-    
-    }
-    
    
 
 
