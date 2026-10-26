@@ -6,14 +6,142 @@
 //  Copyright © 2019 Bibek Shrestha. All rights reserved.
 //
 
+
 import UIKit
+import CoreLocation
+import MapKit
+import CoreData
 
-class ViewController: UIViewController {
-
+class ViewController: UIViewController, CLLocationManagerDelegate, MKMapViewDelegate, NSFetchedResultsControllerDelegate {
+    
+    @IBOutlet weak var mapView: MKMapView!
+    
+    
+    struct memoPlaces {
+        var title = ""
+        var subTitle = ""
+        var latitude = 0.0
+        var longitude = 0.0
+    }
+    var arrayMemoPlaces: [memoPlaces] = []
+    
+    func startingScreen(){
+        
+        
+        let latitude: CLLocationDegrees = 32.840744
+        let longitude: CLLocationDegrees = -96.994970
+        let latDelta: CLLocationDegrees = 0.05
+        let longDelta: CLLocationDegrees = 0.05
+        let coordinates = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+        let span = MKCoordinateSpan(latitudeDelta: latDelta, longitudeDelta: longDelta)
+        let region = MKCoordinateRegion(center: coordinates, span: span)
+        
+        mapView.setRegion(region, animated: true)
+        let annotation = MKPointAnnotation()
+        annotation.title = "Irving Mall"
+        annotation.subtitle = "It's a shopping mall"
+        annotation.coordinate = coordinates
+        
+        mapView.addAnnotation(annotation)
+    }
+    
+    func addAnnotation(_ latitude: Double, _ longitude: Double, title: String, subTitle: String){
+        let annotation = MKPointAnnotation()
+        annotation.title = title
+        annotation.subtitle = subTitle
+        annotation.coordinate = CLLocationCoordinate2DMake(latitude as CLLocationDegrees, longitude as CLLocationDegrees)
+        
+        mapView.addAnnotation(annotation)
+    }
+    
     override func viewDidLoad() {
         super.viewDidLoad()
-        // Do any additional setup after loading the view, typically from a nib.
+        
+        
+        startingScreen()
+        guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else {
+                return
+        }
+        
+        let managedContext = appDelegate.persistentContainer.viewContext
+        let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Places")
+        
+        do {
+            let placeContext = try managedContext.fetch(fetchRequest)
+            for place in placeContext{
+               // print(place.value(forKey: "longitude"))
+                addAnnotation(place.value(forKey: "latitude") as! Double, place.value(forKey: "longitude") as! Double, title: place.value(forKey: "title")! as! String, subTitle: place.value(forKey: "subTitle")! as! String)
+            }
+            
+            
+        } catch let error as NSError {
+            print("Could not fetch. \(error), \(error.userInfo)")
+        }
+        
+        let uiLongPress = UILongPressGestureRecognizer(target: self, action: #selector(self.longPressAction(gestureRecognizer: )))
+        uiLongPress.minimumPressDuration = 2.0
+        mapView.addGestureRecognizer(uiLongPress)
     }
+    
+    
+    @objc func longPressAction(gestureRecognizer: UIGestureRecognizer) {
+        let touchPoint = gestureRecognizer.location(in: self.mapView)
+        let coordinates = mapView.convert(touchPoint, toCoordinateFrom: self.mapView)
+        print(coordinates.longitude)
+        print(coordinates.latitude)
+        getTitleAlert(latitude: coordinates.latitude, longitude: coordinates.longitude )
+        
+        
+    }
+    
+    func getTitleAlert(latitude:Double,longitude: Double)
+    {
+        var title: String = ""
+        var subTitle: String = ""
+        let alert = UIAlertController(title: "Memorable Place?", message: "Please enter title and subtitle below", preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: nil))
+    
+        alert.addTextField(configurationHandler: { textField in
+            textField.placeholder = "Input your title here..."
+        })
+        alert.addTextField(configurationHandler: { textField in
+            textField.placeholder = "Input your subtitle here..."
+        })
+        
+        alert.addAction(UIAlertAction(title: "Add", style: .default, handler: { action in
+            title = (alert.textFields?.first?.text)!
+            subTitle = (alert.textFields?.last?.text)!
+            
+            if !((title.isEmpty) && (subTitle.isEmpty)) {
+            self.addAnnotation(latitude, longitude, title: title, subTitle: subTitle)
+            self.arrayMemoPlaces.append(memoPlaces(title: title, subTitle: subTitle, latitude: latitude, longitude: longitude))
+            
+            let appDelegate = UIApplication.shared.delegate as! AppDelegate
+            let context = appDelegate.persistentContainer.viewContext
+            
+            let entity = NSEntityDescription.entity(forEntityName: "Places", in: context)
+            let newPlace = NSManagedObject(entity: entity!, insertInto: context)
+            newPlace.setValue(title, forKey: "title")
+            newPlace.setValue(subTitle, forKey: "subTitle")
+            newPlace.setValue(longitude, forKey: "longitude")
+            newPlace.setValue(latitude, forKey: "latitude")
+            do {
+                try context.save()
+                print("Data Saved")
+            } catch let error as NSError {
+                print("Could not save. \(error), \(error.userInfo)")
+            }
+            
+
+            } else {
+                print("Please enter valid input")
+            }
+
+        }))
+        
+        self.present(alert, animated: true)
+    }
+   
 
 
 }
